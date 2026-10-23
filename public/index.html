@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14101f">
+<title>Đoán Chữ Party</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎲</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#14101f;--card:#221b36;--fg:#f6f1ff;--mut:#a79fc0;--red:#ff5a4e;--blue:#2ee6d6;--ticket:#ffe66d;--ok:#3ddc84;
+ font-family:"Be Vietnam Pro",system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ink);color:var(--fg);min-height:100%}
+main{max-width:480px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom))}
+h1{font-size:34px;font-weight:900;line-height:1.05;margin:8px 0 6px;letter-spacing:-.02em}
+h2{font-size:18px;font-weight:800;margin:0 0 8px}
+p{margin:6px 0}.mut{color:var(--mut);font-size:14px}
+.card{background:var(--card);border-radius:20px;padding:16px;margin:12px 0}
+input,select{width:100%;padding:14px;border-radius:14px;border:2px solid #4a3f6b;background:var(--ink);color:var(--fg);font:inherit;font-size:16px;margin:4px 0}
+input:focus,select:focus,button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+button{width:100%;padding:16px;border:0;border-radius:16px;font:inherit;font-size:18px;font-weight:800;color:#14101f;background:var(--fg);margin:6px 0;cursor:pointer}
+button:active{transform:scale(.98)}button:disabled{opacity:.4}
+button.red{background:var(--red)}button.blue{background:var(--blue)}button.ok{background:var(--ok)}button.ghost{background:#4a3f6b;color:var(--fg)}
+.chip{display:inline-block;padding:6px 14px;border-radius:99px;background:#4a3f6b;margin:3px;font-weight:600}
+.chip.t0{background:var(--red);color:#14101f}.chip.t1{background:var(--blue);color:#14101f}
+.score{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.score div{border-radius:18px;padding:12px;text-align:center;font-weight:800;color:#14101f}
+.score b{display:block;font-size:44px;line-height:1}
+.s0{background:var(--red)}.s1{background:var(--blue)}
+.timer{font-size:72px;font-weight:900;text-align:center;line-height:1;font-variant-numeric:tabular-nums}
+.timer.low{color:var(--red)}
+.ticket{background:var(--ticket);color:#14101f;border-radius:22px;padding:34px 14px;text-align:center;font-size:44px;font-weight:900;line-height:1.1;word-break:break-word;position:relative}
+.ticket::before,.ticket::after{content:"";position:absolute;top:50%;width:22px;height:22px;margin-top:-11px;border-radius:50%;background:var(--ink)}
+.ticket::before{left:-11px}.ticket::after{right:-11px}
+.pun{font-size:30px;font-weight:900;line-height:1.2;color:var(--ticket);margin:8px 0}
+.row{display:flex;gap:8px}.row input{flex:1}.row button{width:64px;margin:4px 0}
+#qr{background:#fff;padding:10px;border-radius:14px;display:inline-block}#qr svg,#qr img{display:block;width:200px;height:200px}
+.center{text-align:center}
+@media(prefers-reduced-motion:no-preference){.ticket{animation:pop .25s ease-out}@keyframes pop{from{transform:scale(.94) rotate(-1deg)}}}
+</style></head><body><main id="app"></main>
+<script src="qrcode.js"></script>
+<script>
+const LV={1:"Nhẹ nhàng",2:"Vui vẻ",3:"Điên rồ"},TN=["Đội Đỏ","Đội Xanh"];
+const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ls={get:k=>{try{return localStorage.getItem(k)}catch{return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch{}}};
+let pid=ls.get("dc_pid")||Math.random().toString(36).slice(2,12);ls.set("dc_pid",pid);
+let code=(location.hash.slice(1)||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+let st=null,joined=false,off=0,busy=false,qrFor="";
+async function call(a,extra={}){
+ try{const r=await fetch("/api/room",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({a,code,pid,name:ls.get("dc_name"),...extra})});
+  if(!r.ok)throw 0;st=await r.json();off=st.now-Date.now();$("#err")&&($("#err").textContent="");render()}
+ catch{const e=$("#err");if(e)e.textContent="Mất kết nối, đang thử lại…"}}
+function enter(mode){const n=$("#nm").value.trim();if(!n){$("#nm").focus();$("#nm").placeholder="Nhập tên trước đã";return}
+ ls.set("dc_name",n.slice(0,16));
+ if(mode==="new")code=Math.random().toString(36).slice(2,6);
+ else{const c=($("#cd")?$("#cd").value:code).toLowerCase().replace(/[^a-z0-9]/g,"");if(!c){$("#cd").focus();return}code=c}
+ location.hash=code;joined=true;call("join")}
+function addCp(){const i=$("#cpi"),t=i.value.trim();if(t){i.value="";call("cp",{text:t})}}
+let qrSvg="";
+function qr(){const url=location.origin+location.pathname+"#"+code;
+ if(qrFor!==url){qrFor=url;try{const q=qrcode(0,"M");q.addData(url);q.make();qrSvg=q.createSvgTag({cellSize:4,margin:0,scalable:true})}catch(e){qrSvg=""}}
+ const el=$("#qr");if(!el)return;
+ el.innerHTML=qrSvg||`<span style="color:#000;font-size:14px">${esc(url)}</span>`}
+function remain(){return st&&st.end?Math.max(0,Math.ceil((st.end-(Date.now()+off))/1000)):0}
+function render(){const app=$("#app");
+ if(!joined){if(!$("#nm")){
+  const invited=!!code,nm=`<input id="nm" placeholder="Tên của bạn" maxlength="16" value="${esc(ls.get("dc_name")||"")}">`;
+  app.innerHTML=`<h1>Đoán Chữ Party 🎲</h1><p class="mut">Miêu tả từ khóa, cả đội đoán. Thua là chịu phạt.</p>`+(invited
+   ?`<div class="card"><p>Bạn được mời vào phòng <b>${esc(code.toUpperCase())}</b></p>${nm}<button class="blue" onclick="enter('join')">Vào phòng</button></div><button class="ghost" onclick="location.hash='';location.reload()">Tạo phòng mới thay vì vào phòng này</button>`
+   :`<div class="card">${nm}</div><div class="card"><h2>Bạn là người tổ chức?</h2><button class="red" onclick="enter('new')">Tạo phòng mới</button></div><div class="card"><h2>Bạn bè đã tạo phòng rồi?</h2><p class="mut">Quét QR của họ, hoặc gõ mã phòng:</p><input id="cd" placeholder="Mã phòng, ví dụ k3x9" maxlength="12" autocapitalize="none" autocomplete="off"><button class="blue" onclick="enter('join')">Vào phòng</button></div>`)}return}
+ if(!st){app.innerHTML=`<p class="mut">Đang vào phòng…</p><div id="err" class="mut"></div>`;return}
+ const keep=$("#cpi")?{v:$("#cpi").value,f:document.activeElement===$("#cpi")}:null;
+ const H=st.hostId===pid,me=st.me,mt=me?me.team:null,pl=st.players;let h="";
+ if(st.ph==="lobby"){
+  h=`<h1>Phòng ${esc(code.toUpperCase())}</h1><div class="card center"><div id="qr"></div><p class="mut">Bạn bè quét mã này để vào phòng</p></div>
+  <div class="card"><h2>${pl.length} người trong phòng</h2>${pl.map(p=>`<span class="chip">${esc(p.name)}${p.id===pid?" (bạn)":""}</span>`).join("")}<p class="mut">Vui nhất từ 6 đến 10 người.</p></div>
+  <div class="card"><h2>Thêm hình phạt của bạn</h2><div class="row"><input id="cpi" placeholder="VD: Hát bài Tết" maxlength="60"><button class="blue" onclick="addCp()">+</button></div>${(me?me.cp:[]).map(c=>`<span class="chip">${esc(c)}</span>`).join("")}<p class="mut">Mỗi người thêm tối đa 5 câu, trộn vào kho phạt chung.</p></div>`;
+  h+=H?`<div class="card"><h2>Chủ phòng</h2><select onchange="call('lv',{lv:this.value})">${[1,2,3].map(i=>`<option value="${i}" ${i===st.lv?"selected":""}>Mức phạt: ${LV[i]}</option>`).join("")}</select><button class="red" ${pl.length<2?"disabled":""} onclick="call('split')">Chia đội ngẫu nhiên</button></div>`:`<p class="mut center">Chờ chủ phòng chia đội…</p>`;
+ }else{
+  h=`<div class="score"><div class="s0">Đội Đỏ<b>${st.sc[0]}</b></div><div class="s1">Đội Xanh<b>${st.sc[1]}</b></div></div>`;
+  if(st.ph==="ready"){
+   h+=[0,1].map(t=>`<div class="card"><h2>${TN[t]}${mt===t?" (đội bạn)":""}</h2>${pl.filter(p=>p.team===t).map(p=>`<span class="chip t${t}">${esc(p.name)}</span>`).join("")}</div>`).join("");
+   h+=H?`<button class="red" onclick="call('turn',{team:0})">Bắt đầu: Đội Đỏ lên trước</button><button class="ghost" onclick="call('split')">Chia lại đội</button>`:`<p class="mut center">Chờ chủ phòng bắt đầu…</p>`;
+  }else if(st.ph==="turn"){
+   h+=`<div class="card"><div class="mut center">Lượt ${st.n} · ${TN[st.team]} · cần ${st.need} từ đúng để thoát phạt (đã ${st.cor})</div><div class="timer" id="tm">${remain()}</div></div>`;
+   if(st.d===pid)h+=`<p class="mut center">Chỉ máy bạn thấy từ này. Miêu tả, đừng nói thẳng!</p><div class="ticket">${esc(st.w)}</div><button class="ok" onclick="call('ok')">Đoán đúng</button><button class="ghost" onclick="call('skip')">Bỏ qua</button>`;
+   else if(mt===st.team)h+=`<div class="card"><h2>Đoán đi! 🗣️</h2><p>${esc(st.dn)} đang miêu tả cho đội bạn.</p></div>`;
+   else h+=`<div class="card"><h2>Đội bạn nghỉ 😎</h2><p>${esc(st.dn)} đang miêu tả cho ${TN[st.team]}. Canh gian lận nhé!</p></div>`;
+  }else{
+   h+=st.lose?`<div class="card"><h2>${TN[st.team]} thua rồi! 😈</h2><div class="pun">${esc(st.pun)}</div><p class="mut">Mức: ${LV[st.lv]}. Không uống bia thì đổi hình phạt khác. Uống rồi đừng lái xe.</p></div>`:`<div class="card"><h2>${TN[st.team]} an toàn! 🎉</h2><p>Đoán đúng ${st.cor} từ.</p></div>`;
+   h+=H?`<button class="${st.team?"red":"blue"}" onclick="call('turn',{team:${1-st.team}})">Lượt tiếp: ${TN[1-st.team]}</button><button class="ghost" onclick="call('reset')">Về phòng chờ</button>`:`<p class="mut center">Chờ chủ phòng bắt đầu lượt mới…</p>`;
+  }
+ }
+ app.innerHTML=h+`<div id="err" class="mut center"></div>`;
+ if(st.ph==="lobby")qr();
+ if(keep&&$("#cpi")){$("#cpi").value=keep.v;if(keep.f)$("#cpi").focus()}
+}
+setInterval(()=>{if(!joined||busy)return;busy=true;call("poll").finally(()=>busy=false)},1000);
+setInterval(()=>{const t=$("#tm");if(t&&st){const s=remain();t.textContent=s;t.classList.toggle("low",s<=10)}},250);
+if(code&&ls.get("dc_name")){joined=true;call("join")}else render();
+</script></body></html>
